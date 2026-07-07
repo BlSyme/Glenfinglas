@@ -9,7 +9,7 @@ Camera-trap image deer classifier based on the Glenfinglas dataset. A pretrained
 
 ## Requirements
 
-Python 3 with:
+Python 3.12 or newer with:
 
 ```
 pip install -r requirements.txt
