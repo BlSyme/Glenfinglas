@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environments
+ddenv/
+venv/
+.venv/
+env/
+
+# Model weights
+*.pth
+
+# Data
+data/
+*.jpg
+*.jpeg
+*.png
+
+# Pipeline outputs
+*.xlsx
+*.csv
+results/
+outputs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
