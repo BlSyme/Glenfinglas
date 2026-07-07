@@ -12,7 +12,7 @@ Camera-trap image deer classifier based on the Glenfinglas dataset. A pretrained
 Python 3 with:
 
 ```
-pip install torch torchvision pillow numpy pandas openpyxl pytorchwildlife
+pip install -r requirements.txt
 ```
 
 A GPU is optional, can be run on a laptop.

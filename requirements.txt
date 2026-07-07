@@ -1,0 +1,10 @@
+# Core
+torch
+torchvision
+pillow
+numpy
+pandas
+openpyxl
+
+# MegaDetector
+pytorchwildlife==1.3.0
