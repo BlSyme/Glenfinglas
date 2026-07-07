@@ -21,7 +21,7 @@ from PIL import Image, ImageOps
 
 # Config
 # ------
-DATA_DIR = "/home/pgrad1/2896478s/DeerDetector/DeerDetector/data/train"
+DATA_DIR = "data/train"
 CLASS_FOLDERS = ["deer", "no_deer"]
 
 ARCH = "efficientnetv2_s"
