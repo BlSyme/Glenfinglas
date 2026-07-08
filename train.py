@@ -30,7 +30,6 @@ OUTPUT_PTH = "glenfinglas_efficientnetv2_s.pth"
 TEST_FRAC = 0.30
 SEED = 42
 
-FINETUNE = True
 USE_CLASS_WEIGHTS = True
 
 BATCH_SIZE = 64
@@ -133,24 +132,15 @@ class LabeledDataset(Dataset):
 
 # Model
 # -----
-def build_model(arch, num_classes, finetune):
+def build_model(arch, num_classes):
     if arch == "resnet18":
         model = models.resnet18(weights="IMAGENET1K_V1")
-        if not finetune:
-            for p in model.parameters():
-                p.requires_grad = False
         model.fc = nn.Linear(model.fc.in_features, num_classes)
     elif arch == "resnet50":
         model = models.resnet50(weights="IMAGENET1K_V1")
-        if not finetune:
-            for p in model.parameters():
-                p.requires_grad = False
         model.fc = nn.Linear(model.fc.in_features, num_classes)
     elif arch == "efficientnetv2_s":
         model = models.efficientnet_v2_s(weights="IMAGENET1K_V1")
-        if not finetune:
-            for p in model.parameters():
-                p.requires_grad = False
         in_f = model.classifier[1].in_features
         model.classifier[1] = nn.Linear(in_f, num_classes)
     else:
@@ -234,14 +224,14 @@ def main():
     dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "test"]}
     class_names = list(CLASS_FOLDERS)
 
-    print(f"Device: {device}. Arch: {ARCH} ({INPUT_SIZE}px). Finetune: {FINETUNE}.")
+    print(f"Device: {device}. Arch: {ARCH} ({INPUT_SIZE}px).")
     print(f"Train: {dataset_sizes["train"]}. Test: {dataset_sizes["test"]}.")
 
     train_counts = [sum(1 for _, c, _ in train_samples if c == i) for i in range(len(class_names))]
     for name, n in zip(class_names, train_counts):
         print(f"train[{name}] = {n}")
 
-    model = build_model(ARCH, len(class_names), FINETUNE).to(device)
+    model = build_model(ARCH, len(class_names)).to(device)
 
     if USE_CLASS_WEIGHTS:
         total = sum(train_counts)
