@@ -97,6 +97,7 @@ def main():
     ap.add_argument("--output", default="results.xlsx", help="output .xlsx path")
     ap.add_argument("--threshold", default=MD_THRESH, help=f"MegaDetector threshold (default: {MD_THRESH})")
     args = ap.parse_args()
+    args.threshold = float(args.threshold)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
