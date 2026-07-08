@@ -5,7 +5,7 @@ Camera-trap image deer classifier based on the Glenfinglas dataset. A pretrained
 ## Contents
 
 - `train.py` - used to train a transfer-learning classifier. This has already been used to create pretrained models based on resnet18, resnet50 and efficientnet_v2_s which can be applied out-of-the-box.
-- `classify.py` - used to apply a pretrained model to classify images: point it at a folder of images and a model, outputs an Excel sheet with one row per image results (class, confidence, count).
+- `classify_and_count.py` - used to apply a pretrained model to classify images and count the number of detections: point it at a folder of images and a model, outputs an Excel sheet with one row per image results (class, confidence, count).
 
 ## Requirements
 
@@ -22,7 +22,7 @@ A GPU is optional, can be run on a laptop.
 Download a model (`.pth`), then:
 
 ```
-python classify.py --model glenfinglas_MODEL.pth --input /path/to/images --output results.xlsx
+python classify_and_count.py --model glenfinglas_MODEL.pth --input /path/to/images --output results.xlsx
 ```
 
 - `--input` is searched recursively, so nested folders are fine.
