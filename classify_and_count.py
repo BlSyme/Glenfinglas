@@ -105,12 +105,13 @@ def main():
     ckpt = torch.load(args.model, map_location=device)
     arch = ckpt["arch"]
     class_names = ckpt["class_names"]
+    num_outputs = ckpt.get("num_outputs", 1)
     input_size = ckpt.get("input_size", 224)
     mean = ckpt.get("norm_mean", [0.485, 0.456, 0.406])
     std = ckpt.get("norm_std", [0.229, 0.224, 0.225])
     
     infer_tf = build_transform(input_size, mean, std)
-    model = build_model(arch, len(class_names))
+    model = build_model(arch, num_outputs)
     model.load_state_dict(ckpt["state_dict"])
     model.eval().to(device)
     print(f"Loaded {arch} ({input_size}px: {', '.join(class_names)}) on {device}")
@@ -138,10 +139,11 @@ def main():
 
         x = infer_tf(img).unsqueeze(0).to(device)
         with torch.no_grad():
-            probs = torch.softmax(model(x), 1)[0]
+            probs = torch.sigmoid(model(x)).item()
 
-        score, idx = probs.max(0)
-        label = class_names[idx.item()]
+        idx = int(probs >= 0.5)
+        label = class_names[idx]
+        score = probs if idx == 1 else 1.0 - probs
 
         count = 0 if (EMPTY_LABEL is not None and label == EMPTY_LABEL) else count_animals(path)
 

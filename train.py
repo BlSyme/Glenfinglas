@@ -22,7 +22,7 @@ from PIL import Image, ImageOps
 # Config
 # ------
 DATA_DIR = "data/train"
-CLASS_FOLDERS = ["deer", "no_deer"]
+CLASS_FOLDERS = ["no_deer", "deer"]
 
 ARCH = "efficientnetv2_s"
 OUTPUT_PTH = "glenfinglas_efficientnetv2_s.pth"
@@ -33,13 +33,13 @@ SEED = 42
 USE_CLASS_WEIGHTS = True
 
 BATCH_SIZE = 64
-NUM_EPOCHS = 9
+NUM_EPOCHS = 6
 NUM_WORKERS = 4
 
 LR = 5e-4
 WEIGHT_DECAY = 1e-2
 STEP_SIZE = 3
-GAMMA = 0.5
+GAMMA = 0.3
 
 IMG_EXTS = (".jpg", ".jpeg", ".png")
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
@@ -141,8 +141,7 @@ def build_model(arch, num_classes):
         model.fc = nn.Linear(model.fc.in_features, num_classes)
     elif arch == "efficientnetv2_s":
         model = models.efficientnet_v2_s(weights="IMAGENET1K_V1")
-        in_f = model.classifier[1].in_features
-        model.classifier[1] = nn.Linear(in_f, num_classes)
+        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
     else:
         raise ValueError(f"Unknown ARCH: {arch}")
     return model
@@ -151,7 +150,7 @@ def train_model(model, criterion, optimiser, scheduler, dataloaders, dataset_siz
     since = time.time()
 
     for epoch in range(num_epochs):
-        print(f"Epoch {epoch}/{num_epochs - 1}")
+        print(f"Epoch {epoch + 1}/{num_epochs}")
         print("-" * 10)
  
         # train
@@ -164,13 +163,13 @@ def train_model(model, criterion, optimiser, scheduler, dataloaders, dataset_siz
             labels = labels.to(device)
 
             optimiser.zero_grad()
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
+            outputs = model(inputs).squeeze(1)
 
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, labels.float())
             loss.backward()
             optimiser.step()
 
+            preds = (torch.sigmoid(outputs) >= 0.5).long()
             running_loss += loss.item() * inputs.size(0)
             running_corrects += torch.sum(preds == labels.data)
 
@@ -190,11 +189,11 @@ def train_model(model, criterion, optimiser, scheduler, dataloaders, dataset_siz
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
-                outputs = model(inputs)
-                _, preds = torch.max(outputs, 1)
+                outputs = model(inputs).squeeze(1)
 
-                loss = criterion(outputs, labels)
+                loss = criterion(outputs, labels.float())
 
+                preds = (torch.sigmoid(outputs) >= 0.5).long()
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
 
@@ -225,21 +224,21 @@ def main():
     class_names = list(CLASS_FOLDERS)
 
     print(f"Device: {device}. Arch: {ARCH} ({INPUT_SIZE}px).")
-    print(f"Train: {dataset_sizes["train"]}. Test: {dataset_sizes["test"]}.")
+    print(f"Train: {dataset_sizes['train']}. Test: {dataset_sizes['test']}.")
 
     train_counts = [sum(1 for _, c, _ in train_samples if c == i) for i in range(len(class_names))]
     for name, n in zip(class_names, train_counts):
         print(f"train[{name}] = {n}")
 
-    model = build_model(ARCH, len(class_names)).to(device)
+    model = build_model(ARCH, 1).to(device)
 
     if USE_CLASS_WEIGHTS:
-        total = sum(train_counts)
-        weights = [total / (len(class_names) * c) if c > 0 else 0.0 for c in train_counts]
-        criterion = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float, device=device))
-        print(f"class weights: {weights}")
+        neg, pos = train_counts[0], train_counts[1]
+        weight = torch.tensor([neg/pos], dtype=torch.float, device=device)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=weight)
+        print(f"weight (for '{class_names[1]}'): {neg/pos:.3f}")
     else:
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.BCEWithLogitsLoss()
 
     params = [p for p in model.parameters() if p.requires_grad]
     optimiser = optim.AdamW(params, lr=LR, weight_decay=WEIGHT_DECAY)
@@ -247,7 +246,7 @@ def main():
 
     model = train_model(model, criterion, optimiser, scheduler, dataloaders, dataset_sizes, NUM_EPOCHS)
 
-    torch.save({"arch": ARCH, "class_names": class_names, "input_size": INPUT_SIZE, "norm_mean": NORM_MEAN, "norm_std": NORM_STD, "state_dict": model.state_dict()}, OUTPUT_PTH)
+    torch.save({"arch": ARCH, "class_names": class_names, "num_outputs": 1, "input_size": INPUT_SIZE, "norm_mean": NORM_MEAN, "norm_std": NORM_STD, "state_dict": model.state_dict()}, OUTPUT_PTH)
     print(f"Saved checkpoint -> {OUTPUT_PTH}")
 
 if __name__ == "__main__":
