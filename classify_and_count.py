@@ -145,7 +145,13 @@ def main():
         label = class_names[idx]
         score = probs if idx == 1 else 1.0 - probs
 
-        count = 0 if (EMPTY_LABEL is not None and label == EMPTY_LABEL) else count_animals(path)
+        if EMPTY_LABEL is not None and label == EMPTY_LABEL:
+            count = 0
+            review = False
+        else:
+            count = count_animals(path)
+            review = (count == 0)
+        
 
         rows.append({
             "image_path": path,
@@ -153,6 +159,7 @@ def main():
             "class": label,
             "confidence": round(float(score), 4),
             "count": count,
+            "review": review,
         })
 
         if i % (len(images) // 10) == 0 or i == len(images):
@@ -160,6 +167,10 @@ def main():
 
     pd.DataFrame(rows).to_excel(args.output, index=False)
     print(f"Wrote {len(rows)} rows -> {args.output}")
+    
+    n_review = sum(1 for r in rows if r["review"])
+    if n_review:
+        print(f"{n_review} image(s) flagged for review: may contain deer, but a bounding box cannot be defined. Check these manually.")
 
 if __name__ == "__main__":
     main()
