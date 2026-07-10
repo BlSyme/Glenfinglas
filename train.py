@@ -24,8 +24,8 @@ from PIL import Image, ImageOps
 DATA_DIR = "data/train"
 CLASS_FOLDERS = ["no_deer", "deer"]
 
-ARCH = "efficientnetv2_s"
-OUTPUT_PTH = "glenfinglas_efficientnetv2_s.pth"
+ARCH = "efficientnetv2_s"                        # resnet18, resnet50 or efficientnetv2_s
+OUTPUT_PTH = "glenfinglas_efficientnetv2_s.pth"  # model name
 
 TEST_FRAC = 0.30
 SEED = 42
