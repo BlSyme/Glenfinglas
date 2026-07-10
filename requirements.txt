@@ -8,5 +8,5 @@ openpyxl
 
 # MegaDetector
 pytorchwildlife==1.3.0
-audiofile
-librosa
+audiofile==1.6.1
+librosa==0.11.0
