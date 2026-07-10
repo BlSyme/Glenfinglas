@@ -1,17 +1,24 @@
 """
 Apply a trained Glenfinglas model to a folder of images.
 
-1. Classifies each image (deer / other / empty) with trained CNN
+1. Classifies each image (deer / no_deer) with trained CNN
 2. Applies MegaDetector to non-empty images to produce counts
-3. Writes one Excel row per image
+3. Writes one Excel row per image, and a JSON file of bounding boxes
+
+In the case that the CNN labels an image as containing deer but MegaDetector fails to define a 
+bounding box, the excel output will be marked with review=True and should be checked manually.
+
+The JSON output can be rendered onto copies of the images containing deer with 
+draw_detections.py. Images marked for review are separated into another folder.
 
 Usage:
-    python classify.py --model glenfinglas_MODEL.pth --input IMAGE_FOLDER --output results.xlsx
+    python classify.py --model glenfinglas_MODEL.pth --input IMAGE_FOLDER --output results.xlsx --detections detections.json
 """ 
 
 import os
 import sys
 import time
+import json
 import argparse
 
 import torch
@@ -109,6 +116,7 @@ def main():
     ap.add_argument("--model", required=True, help="path to trained .pth checkpoint")
     ap.add_argument("--input", required=True, help="folder of images (searched recursively)")
     ap.add_argument("--output", default="results.xlsx", help="output .xlsx path")
+    ap.add_argument("--detections", default="detections.json", help="output .json for bounding boxes")
     ap.add_argument("--threshold", default=MD_THRESH, help=f"MegaDetector threshold (default: {MD_THRESH})")
     args = ap.parse_args()
     args.threshold = float(args.threshold)
@@ -133,26 +141,36 @@ def main():
     # load MegaDetector
     detector = detection.MegaDetectorV6(device=str(device), pretrained=True, version=MD_VERSION)
 
-    def count_animals(path):
+    def detect(path):
+        """Run MegaDetector and return a list of detection records."""
         img = np.array(Image.open(path).convert("RGB"))
         result = detector.single_image_detection(img, img_path=path, det_conf_thres=args.threshold)
-        
+
         dets = result["detections"]
-        n = 0
-        for cid, conf in zip(dets.class_id, dets.confidence):
-            if detector.CLASS_NAMES[int(cid)] == "animal" and conf >= args.threshold:
-                n += 1
-        return n
-    
+        records = []
+        for box, cid, conf in zip(dets.xyxy, dets.class_id, dets.confidence):
+            if conf < args.threshold:
+                continue
+                
+            if detector.CLASS_NAMES[int(cid)] != "animal":
+                continue
+
+            records.append({
+                "bbox": [round(float(v), 2) for v in box],   # [x1, y1, x2, y2]
+                "confidence": round(float(conf), 4),
+            })
+        return records
+        
     images = find_images(args.input)
     print(f"Found {len(images)} images")
     if not images:
-        return
+        return    
         
     since = time.time()
     last_pct = -1
 
     rows = []
+    detections = []
     for i, path in enumerate(images, 1):
         img = Image.open(path).convert("RGB")
 
@@ -168,9 +186,15 @@ def main():
             count = 0
             review = False
         else:
-            count = count_animals(path)
+            records = detect(path)
+            count = len(records)
             review = (count == 0)
-        
+            detections.append({
+                "image_path": path,
+                "width": img.width,
+                "height": img.height,
+                "detections": records,
+            })
 
         rows.append({
             "image_path": path,
@@ -191,6 +215,17 @@ def main():
 
     pd.DataFrame(rows).to_excel(args.output, index=False)
     print(f"Wrote {len(rows)} rows -> {args.output}")
+    
+    payload = {
+        "input_root": os.path.abspath(args.input),
+        "md_version": MD_VERSION,
+        "threshold": args.threshold,
+        "images": detections,
+    }
+    with open(args.detections, "w") as f:
+        json.dump(payload, f, indent=2)
+    n_boxes = sum(len(d["detections"]) for d in detections)
+    print(f"Wrote {n_boxes} detections over {len(detections)} images -> {args.detections}")
     
     n_review = sum(1 for r in rows if r["review"])
     if n_review:
