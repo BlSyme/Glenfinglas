@@ -10,6 +10,8 @@ Usage:
 """ 
 
 import os
+import sys
+import time
 import argparse
 
 import torch
@@ -86,6 +88,18 @@ def find_images(root):
             if fn.lower().endswith(IMG_EXTS):
                 paths.append(os.path.join(dirpath, fn))
     return sorted(paths)
+    
+    
+# Progress reporting
+# ------------------
+def progress_bar(done, total, width=50):
+    pct = done / total
+    filled = int(width * pct)
+    bar = "#" * filled + "-" * (width - filled)
+    sys.stdout.write(f"\r[{bar}] {pct * 100:5.1f}")
+    sys.stdout.flush()
+    if done == total:
+        sys.stdout.write("\n")
 
 
 # Main
@@ -132,6 +146,11 @@ def main():
     
     images = find_images(args.input)
     print(f"Found {len(images)} images")
+    if not images:
+        return
+        
+    since = time.time()
+    last_pct = -1
 
     rows = []
     for i, path in enumerate(images, 1):
@@ -162,8 +181,13 @@ def main():
             "review": review,
         })
 
-        if i % (len(images) // 10) == 0 or i == len(images):
-            print(f"{i}/{len(images)}")
+        pct = int(100 * i / len(images))
+        if pct != last_pct or i == len(images):
+            progress_bar(i, len(images))
+            last_pct = pct
+            
+    elapsed = time.time() - since
+    print(f"Processed {len(images)} images in {elapsed // 60:.0f}m {elapsed % 60:.0f}s")        
 
     pd.DataFrame(rows).to_excel(args.output, index=False)
     print(f"Wrote {len(rows)} rows -> {args.output}")
