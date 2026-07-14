@@ -16,28 +16,29 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.utils.data import Dataset, DataLoader
 from torchvision import models, transforms
+from torchvision.transforms import functional
 from PIL import Image, ImageOps
 
 
 # Config
 # ------
 DATA_DIR = "data/train"
-CLASS_FOLDERS = ["no_deer", "deer"]
+CLASS_FOLDERS = ["no_deer", "deer"]              # class labels
 
 ARCH = "efficientnetv2_s"                        # resnet18, resnet50 or efficientnetv2_s
 OUTPUT_PTH = "glenfinglas_efficientnetv2_s.pth"  # model name
 
-TEST_FRAC = 0.30
-SEED = 42
+TEST_FRAC = 0.30                                 # fraction of images held out for test set
+SEED = 42                                        # random seed for reproducibility 
 
-USE_CLASS_WEIGHTS = True
+USE_CLASS_WEIGHTS = True                         # set to True if one class dominates the data
 
-BATCH_SIZE = 64
-NUM_EPOCHS = 6
+BATCH_SIZE = 64                                  # number of images per batch: reduce if VRAM is a limitation
+NUM_EPOCHS = 6                                   # number of iterations through train set during training
 NUM_WORKERS = 4
 
-LR = 5e-4
-WEIGHT_DECAY = 1e-2
+LR = 5e-4                                        # learning rate: higher = more aggresive ("bigger steps"), may overstep / lower = less aggresive, slower to learn
+WEIGHT_DECAY = 1e-2                              
 STEP_SIZE = 3
 GAMMA = 0.3
 
@@ -47,10 +48,24 @@ device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 # Image preprocessing
 # -------------------
-INPUT_SIZE = 384
-NORM_MEAN = [0.485, 0.456, 0.406]
-NORM_STD = [0.229, 0.224, 0.225]
+CROP_FRAC = 0.0456                               # fraction of bottom of images to remove e.g., data bar overlay: set to 0.0 to disable cropping
+INPUT_SIZE = 384                                 # image size after resize: higher = capture finer detail, slower to train / lower = loses some detail, faster to train
+NORM_MEAN = [0.485, 0.456, 0.406]                
+NORM_STD = [0.229, 0.224, 0.225]                 
 PAD_FILL = tuple(int(m * 255) for m in NORM_MEAN)
+
+class CropBottom:
+    """Remove the bottom fraction oif image height"""
+    def __init__(self, frac=0.0):
+        self.frac = frac
+        
+    def __call__(self, image):
+        if self.frac <= 0:
+            return image
+            
+        w, h = image.size
+        keep = int(round(h * (1 - self.frac)))
+        return functional.crop(image, top=0, left=0, height=keep, width=w)
 
 class SquarePad:
     """Pad to square, preserving aspect ratio"""
@@ -69,6 +84,7 @@ class SquarePad:
     
 data_transforms = {
     "train": transforms.Compose([
+        CropBottom(CROP_FRAC),
         SquarePad(PAD_FILL),
         transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
         transforms.RandomHorizontalFlip(),
@@ -76,6 +92,7 @@ data_transforms = {
         transforms.Normalize(NORM_MEAN, NORM_STD),
     ]),
     "test": transforms.Compose([
+        CropBottom(CROP_FRAC),
         SquarePad(PAD_FILL),
         transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
         transforms.ToTensor(),

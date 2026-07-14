@@ -12,7 +12,7 @@ The JSON output can be rendered onto copies of the images containing deer with
 draw_detections.py. Images marked for review are separated into another folder.
 
 Usage:
-    python classify.py --model glenfinglas_MODEL.pth --input IMAGE_FOLDER --output results.xlsx --detections detections.json
+    python classify.py --model glenfinglas_MODEL.pth --input path/to/images --output results.xlsx --detections detections.json
 """ 
 
 import os
@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageOps
 from torchvision import models, transforms
+from torchvision.transforms import functional
 
 from PytorchWildlife.models import detection
 
@@ -40,10 +41,24 @@ EMPTY_LABEL = "no_deer"         # Set to None to run MegaDetector on every image
 MD_VERSION = "MDV6-yolov10-e"
 MD_THRESH = 0.2                 # Detection confidence threshold for counting
 IMG_EXTS = (".jpg", ".jpeg", ".png")
+CROP_FRAC = 0.0456              # Set to 0.0 to disable cropping
 
 
 # Image preprocessing
 # -------------------
+class CropBottom:
+    """Remove the bottom fraction oif image height"""
+    def __init__(self, frac=0.0):
+        self.frac = frac
+        
+    def __call__(self, image):
+        if self.frac <= 0:
+            return image
+            
+        w, h = image.size
+        keep = int(round(h * (1 - self.frac)))
+        return functional.crop(image, top=0, left=0, height=keep, width=w)
+
 class SquarePad:
     """Pad to square, preserving aspect ratio"""
     def __init__(self, fill):
@@ -62,6 +77,7 @@ class SquarePad:
 def build_transform(input_size, mean, std):
     fill = tuple(int(m * 255) for m in mean)
     return transforms.Compose([
+        CropBottom(CROP_FRAC),
         SquarePad(fill),
         transforms.Resize((input_size, input_size)),
         transforms.ToTensor(),
