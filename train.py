@@ -31,8 +31,6 @@ OUTPUT_PTH = "glenfinglas_efficientnetv2_s.pth"  # model name
 TEST_FRAC = 0.30                                 # fraction of images held out for test set
 SEED = 42                                        # random seed for reproducibility 
 
-USE_CLASS_WEIGHTS = True                         # set to True if one class dominates the data
-
 BATCH_SIZE = 64                                  # number of images per batch: reduce if VRAM is a limitation
 NUM_EPOCHS = 6                                   # number of iterations through train set during training
 NUM_WORKERS = 4
@@ -180,13 +178,13 @@ def train_model(model, criterion, optimiser, scheduler, dataloaders, dataset_siz
             labels = labels.to(device)
 
             optimiser.zero_grad()
-            outputs = model(inputs).squeeze(1)
+            outputs = model(inputs)
 
-            loss = criterion(outputs, labels.float())
+            loss = criterion(outputs, labels)
             loss.backward()
             optimiser.step()
 
-            preds = (torch.sigmoid(outputs) >= 0.5).long()
+            _, preds = torch.max(outputs, 1)
             running_loss += loss.item() * inputs.size(0)
             running_corrects += torch.sum(preds == labels.data)
 
@@ -206,11 +204,11 @@ def train_model(model, criterion, optimiser, scheduler, dataloaders, dataset_siz
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
-                outputs = model(inputs).squeeze(1)
+                outputs = model(inputs)
 
-                loss = criterion(outputs, labels.float())
+                loss = criterion(outputs, labels)
 
-                preds = (torch.sigmoid(outputs) >= 0.5).long()
+                _, preds = torch.max(outputs, 1)
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
 
@@ -247,15 +245,12 @@ def main():
     for name, n in zip(class_names, train_counts):
         print(f"train[{name}] = {n}")
 
-    model = build_model(ARCH, 1).to(device)
+    model = build_model(ARCH, len(class_names)).to(device)
 
-    if USE_CLASS_WEIGHTS:
-        neg, pos = train_counts[0], train_counts[1]
-        weight = torch.tensor([neg/pos], dtype=torch.float, device=device)
-        criterion = nn.BCEWithLogitsLoss(pos_weight=weight)
-        print(f"weight (for '{class_names[1]}'): {neg/pos:.3f}")
-    else:
-        criterion = nn.BCEWithLogitsLoss()
+    total = sum(train_counts)
+    weights = [total / (len(class_names) * c) if c > 0 else 0.0 for c in train_counts]
+    criterion = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float, device=device))
+    print(f"class weights: {[round(w, 3) for w in weights]}")
 
     params = [p for p in model.parameters() if p.requires_grad]
     optimiser = optim.AdamW(params, lr=LR, weight_decay=WEIGHT_DECAY)
@@ -263,7 +258,7 @@ def main():
 
     model = train_model(model, criterion, optimiser, scheduler, dataloaders, dataset_sizes, NUM_EPOCHS)
 
-    torch.save({"arch": ARCH, "class_names": class_names, "num_outputs": 1, "input_size": INPUT_SIZE, "norm_mean": NORM_MEAN, "norm_std": NORM_STD, "state_dict": model.state_dict()}, OUTPUT_PTH)
+    torch.save({"arch": ARCH, "class_names": class_names, "input_size": INPUT_SIZE, "norm_mean": NORM_MEAN, "norm_std": NORM_STD, "state_dict": model.state_dict()}, OUTPUT_PTH)
     print(f"Saved checkpoint -> {OUTPUT_PTH}")
 
 if __name__ == "__main__":
