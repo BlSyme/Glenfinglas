@@ -12,7 +12,7 @@ Warning: Human images were removed from the dataset before the provided models w
 
 ## Requirements
 
-Python 3.12 or newer with:
+Python 3.12 or newer is recommended with:
 
 ```
 pip install -r requirements.txt
@@ -77,7 +77,7 @@ The architecture and class names are saved inside the `.pth`.
 ### Class Imbalance
 - `USE_CLASS_WEIGHTS = True` - compensates for large class imbalance: Glenfinglas data is dominated by *no_deer* images, so model could otherwise learn to always predict *no_deer* and achieve decent accuracy.
 
-### Hyperperameters
+### Hyperparameters
 - `LR = 5e-4` - moderate standard learning rate for AdamW optimiser.
 - `WEIGHT_DECAY = 1e-2` - limits overfitting: increase for smaller datasets, decrease for larger datasets.
 - `STEP_SIZE = 3`, `GAMMA = 0.3` - multiply learning rate by 0.3 every 3 epochs for finer convergence in later epochs.
