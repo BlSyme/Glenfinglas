@@ -38,9 +38,9 @@ NUM_EPOCHS = 6                                   # number of iterations through 
 NUM_WORKERS = 4
 
 LR = 5e-4                                        # learning rate: higher = more aggresive ("bigger steps"), may overstep / lower = less aggresive, slower to learn
-WEIGHT_DECAY = 1e-2                              
-STEP_SIZE = 3
-GAMMA = 0.3
+WEIGHT_DECAY = 1e-2                              # weight decay to limit overfitting
+STEP_SIZE = 3                                    # epoch schedule after which lr is multiplied by gamma
+GAMMA = 0.3                                      # multiplier for learning rate applied every step_size epochs   
 
 IMG_EXTS = (".jpg", ".jpeg", ".png")
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")

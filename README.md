@@ -49,12 +49,36 @@ python draw_detections.py --detections detections.json --output path/to/output -
 
 Should you wish to train a model on your own dataset:
 1. Arrange labelled images in class folders - `data/train/deer/`, `data/train/no_deer/` using naming scheme `location__batch__image.jpg`.
-2. Open `train.py` and set `ARCH`, `OUTPUT_PTH`, and optionally adjust the hyperparameters in the CONFIG block. `ARCH` must be one of `resnet18`, `resnet50`, or `efficientnetv2_s` under the current version - other models require deeper changes in the code.
+2. Open `train.py` and set `ARCH`, `OUTPUT_PTH`, and optionally adjust the hyperparameters in the CONFIG block (see **Configuration**). `ARCH` must be one of `resnet18`, `resnet50`, or `efficientnetv2_s` under the current version - other models require deeper changes in the code.
 3. Run:
 ```
 python train.py
 ```
 
-
 The train/test split is stratified by location and class (~30% test).
 The architecture and class names are saved inside the `.pth`.
+
+## Configuration 
+
+### Models
+- `resnet18` - lightweight option for smaller/easier datasets. Pretrained on ImageNet.
+- `resnet50` - larger resnet model which may be suitable for larger datasets. Pretrained on ImageNet.
+- `efficientnetv2_s` - alternative model architecture: lighter than resnet50 and performs best on Glenfinglas data. Pretrained on ImageNet.
+
+### Image Preprocessing
+- `CropBottom` - crops `CROP_FRAC` fraction of input image height from bottom to remove data overlay bar in camera trap images. Set to 0.0456 for Glenfinglas data; set to 0.0 for no crop.
+- `SquarePad` - resizes input images to square using ImageNet mean grey-fill padding. Preserves aspect ratio.
+- `Resize` - scales square images to `INPUT_SIZE`x`INPUT_SIZE`. 384 is chosen to preserve fine detail, and also reflects standard resolution for EfficientNet weights. Should be well-divisible by 2.
+
+### Data Split
+- `TEST_FRAC` - fraction of input images which are held out for the test set.
+- `SEED` - seed for shuffle and split of input into test and train sets, so runs are reproducible.
+
+### Class Imbalance
+- `USE_CLASS_WEIGHTS = True` - compensates for large class imbalance: Glenfinglas data is dominated by *no_deer* images, so model could otherwise learn to always predict *no_deer* and achieve decent accuracy.
+
+### Hyperperameters
+- `LR = 5e-4` - moderate standard learning rate for AdamW optimiser.
+- `WEIGHT_DECAY = 1e-2` - limits overfitting: increase for smaller datasets, decrease for larger datasets.
+- `STEP_SIZE = 3`, `GAMMA = 0.3` - multiply learning rate by 0.3 every 3 epochs for finer convergence in later epochs.
+- `NUM_EPOCHS = 6` - iterate over training data 6 times: relatively few iterations to limit overfitting on "easy" dataset.
