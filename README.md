@@ -7,6 +7,7 @@ Warning: Human images were removed from the dataset before the provided models w
 ## Contents
 
 - `train.py` - used to train a transfer-learning classifier. This has already been used to create pretrained models based on resnet18, resnet50 and efficientnet_v2_s which can be applied out-of-the-box.
+- `speciesnet_backbone.py` - used by `train.py` when `ARCH = speciesnet`
 - `classify_and_count.py` - used to apply a pretrained model to classify images and count the number of detections: point it at a folder of images and a model, outputs an Excel sheet with one row per image results (class, confidence, count, review) and a JSON file for use by `draw_detections.py`. In particularly occluded or out-of-focus images, an image may be classified as containing *deer* but MegaDetector may still fail to define a bounding box. A *deer* classified image with count = 0 will be flagged with review = True in the Excel output, indicating that the image classification and count should be manually verified.
 - `draw_detections.py` - used to render the JSON output from `classify_and_count.py` to visualise detections using bounding boxes. Also outputs a folder of copies of images flagged for review for convenience.
 
@@ -32,6 +33,7 @@ python classify_and_count.py --model glenfinglas_MODEL.pth --input path/to/image
 - `--input` is the path to the image folder on which you intend to apply the model (searched recursively).
 - `--output` is the path to the output Excel file of results e.g., `results.xlsx` will create an Excel file called results in the current working directory. The sheet has one row per image: full pathway in input folder, image name, class, confidence, count, review.
 - `--detections` is the path to the output JSON file of detections e.g., `detections.json` will create a JSON file called detections in the current working directory. This file can then be used as input for `draw_detections.py`.
+- `--threshold` (optional) can be used to specify the MegaDetector animal detection threshold and should be value in the open interval (0, 1). A lower makes the count more sensitive and will increase the chance of overcounting. Default = 0.2. 
 
 ## Displaying your results (`draw_detections.py`)
 
@@ -49,7 +51,7 @@ python draw_detections.py --detections detections.json --output path/to/output -
 
 Should you wish to train a model on your own dataset:
 1. Arrange labelled images in class folders - `data/train/deer/`, `data/train/no_deer/` using naming scheme `location__batch__image.jpg`.
-2. Open `train.py` and set `ARCH`, `OUTPUT_PTH`, and optionally adjust the hyperparameters in the CONFIG block (see **Configuration**). `ARCH` must be one of `resnet18`, `resnet50`, or `efficientnetv2_s` under the current version - other models require deeper changes in the code.
+2. Open `train.py` and set `ARCH`, `OUTPUT_PTH`, and optionally adjust the hyperparameters in the CONFIG block (see **Configuration**). `ARCH` must be one of `resnet18`, `resnet50`,  `efficientnetv2_s`, `efficientnetv2_m` or `speciesnet` under the current version - other models require deeper changes in the code.
 3. Run:
 ```
 python train.py
@@ -60,10 +62,12 @@ The architecture and class names are saved inside the `.pth`.
 
 ## Configuration 
 
-### Models
+### Models (`ARCH`)
 - `resnet18` - lightweight option for smaller/easier datasets. Pretrained on ImageNet.
-- `resnet50` - larger resnet model which may be suitable for larger datasets. Pretrained on ImageNet.
-- `efficientnetv2_s` - alternative model architecture: lighter than resnet50 and performs best on Glenfinglas data. Pretrained on ImageNet.
+- `resnet50` - larger ResNet model which may be suitable for larger datasets. Pretrained on ImageNet.
+- `efficientnetv2_s` - alternative lightweight model architecture. Pretrained on ImageNet.
+- `efficientnetv2_m` - larger EfficientNet V2 model which may be suitable for larger datasets. Pretrained on ImageNet.
+- `speciesnet` - the same EfficientNet V2-M architecture, pretrained by Google on over 65M camera trap images (see **SpeciesNet**).
 
 ### Image Preprocessing
 - `CropBottom` - crops `CROP_FRAC` fraction of input image height from bottom to remove data overlay bar in camera trap images. Set to 0.0456 for Glenfinglas data; set to 0.0 for no crop.
@@ -82,3 +86,14 @@ The architecture and class names are saved inside the `.pth`.
 - `WEIGHT_DECAY = 1e-2` - limits overfitting: increase for smaller datasets, decrease for larger datasets.
 - `STEP_SIZE = 3`, `GAMMA = 0.3` - multiply learning rate by 0.3 every 3 epochs for finer convergence in later epochs.
 - `NUM_EPOCHS = 5` - iterate over training data 5 times: relatively few iterations to limit overfitting on "easy" dataset.
+
+## SpeciesNet
+
+Species classification using the SpeciesNet backbone (EfficientNet V2-M) derives from a
+release by Google as part of `cameratrapai`:
+
+> Gadot T, Istrate Ș, Kim H, Morris D, Beery S, Birch T, Ahumada J.
+> [To crop or not to crop: Comparing whole-image and cropped classification on a large dataset of camera trap images](https://doi.org/10.1049/cvi2.12318).
+> IET Computer Vision. 2024;18(8):1193–1208.
+
+Software: https://github.com/google/cameratrapai
