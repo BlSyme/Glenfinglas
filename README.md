@@ -68,7 +68,7 @@ The architecture and class names are saved inside the `.pth`.
 ### Image Preprocessing
 - `CropBottom` - crops `CROP_FRAC` fraction of input image height from bottom to remove data overlay bar in camera trap images. Set to 0.0456 for Glenfinglas data; set to 0.0 for no crop.
 - `SquarePad` - resizes input images to square using ImageNet mean grey-fill padding. Preserves aspect ratio.
-- `Resize` - scales square images to `INPUT_SIZE`x`INPUT_SIZE`. 384 is chosen to preserve fine detail, and also reflects standard resolution for EfficientNet weights. Should be well-divisible by 2.
+- `Resize` - scales square images to `INPUT_SIZE`x`INPUT_SIZE`. Default values correspond to native architecture resolutions. Should be well-divisible by 2 if edited.
 
 ### Data Split
 - `TEST_FRAC` - fraction of input images which are held out for the test set.
@@ -81,4 +81,4 @@ The architecture and class names are saved inside the `.pth`.
 - `LR = 5e-4` - moderate standard learning rate for AdamW optimiser.
 - `WEIGHT_DECAY = 1e-2` - limits overfitting: increase for smaller datasets, decrease for larger datasets.
 - `STEP_SIZE = 3`, `GAMMA = 0.3` - multiply learning rate by 0.3 every 3 epochs for finer convergence in later epochs.
-- `NUM_EPOCHS = 6` - iterate over training data 6 times: relatively few iterations to limit overfitting on "easy" dataset.
+- `NUM_EPOCHS = 5` - iterate over training data 5 times: relatively few iterations to limit overfitting on "easy" dataset.

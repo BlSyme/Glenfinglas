@@ -31,17 +31,20 @@ from torchvision.transforms import functional
 
 from PytorchWildlife.models import detection
 
+from speciesnet_backbone import build_speciesnet, SpeciesNetPreprocess, read_info
+
 import logging
 logging.getLogger("ultralytics").setLevel(logging.ERROR)
 
 
 # Config
 # ------
-EMPTY_LABEL = "no_deer"         # Set to None to run MegaDetector on every image
+EMPTY_LABEL = "no_deer"                 # Set to None to run MegaDetector on every image
 MD_VERSION = "MDV6-yolov10-e"
-MD_THRESH = 0.2                 # Detection confidence threshold for counting
+MD_THRESH = 0.2                         # Detection confidence threshold for counting
 IMG_EXTS = (".jpg", ".jpeg", ".png")
-CROP_FRAC = 0.0456              # Set to 0.0 to disable cropping
+CROP_FRAC = 0.0456                      # Set to 0.0 to disable cropping
+SPECIESNET_DIR = "models/speciesnet"    # extracted Kaggle bundle: only used for speciesnet checkpoints
 
 
 # Image preprocessing
@@ -74,7 +77,10 @@ class SquarePad:
         padding = (pad_w, pad_h, max_dim - w - pad_w, max_dim - h - pad_h)
         return ImageOps.expand(image, padding, fill=self.fill)
     
-def build_transform(input_size, mean, std):
+def build_transform(arch, input_size, mean, std):
+    if arch == "speciesnet":
+        return SpeciesNetPreprocess(read_info(SPECIESNET_DIR)["type"])
+
     fill = tuple(int(m * 255) for m in mean)
     return transforms.Compose([
         CropBottom(CROP_FRAC),
@@ -97,6 +103,11 @@ def build_model(arch, num_classes):
     elif arch == "efficientnetv2_s":
         m = models.efficientnet_v2_s(weights=None)
         m.classifier[1] = nn.Linear(m.classifier[1].in_features, num_classes)
+    elif arch == "efficientnetv2_m":
+        m = models.efficientnet_v2_m(weights=None)
+        m.classifier[1] = nn.Linear(m.classifier[1].in_features, num_classes)
+    elif arch == "speciesnet":
+        m = build_speciesnet(SPECIESNET_DIR, num_classes)
     else:
         raise ValueError(f"Unknown arch in checkpoint: {arch}")
     return m
@@ -146,8 +157,13 @@ def main():
     input_size = ckpt.get("input_size", 224)
     mean = ckpt.get("norm_mean", [0.485, 0.456, 0.406])
     std = ckpt.get("norm_std", [0.229, 0.224, 0.225])
-    
-    infer_tf = build_transform(input_size, mean, std)
+    if arch == "speciesnet":
+        trained_on = ckpt["speciesnet_version"]
+        available = read_info(SPECIESNET_DIR)["version"]
+        if trained_on != available:
+            raise ValueError(f"checkpoint trained on SpeciesNet {trained_on}, but {SPECIESNET_DIR} holds {available}")
+
+    infer_tf = build_transform(arch, input_size, mean, std)
     model = build_model(arch, len(class_names))
     model.load_state_dict(ckpt["state_dict"])
     model.eval().to(device)

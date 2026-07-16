@@ -19,20 +19,24 @@ from torchvision import models, transforms
 from torchvision.transforms import functional
 from PIL import Image, ImageOps
 
+from speciesnet_backbone import build_speciesnet, SpeciesNetPreprocess, read_info
+
 
 # Config
 # ------
 DATA_DIR = "data/train"
 CLASS_FOLDERS = ["no_deer", "deer"]              # class labels
 
-ARCH = "efficientnetv2_s"                        # resnet18, resnet50 or efficientnetv2_s
-OUTPUT_PTH = "glenfinglas_efficientnetv2_s.pth"  # model name
+ARCH = "speciesnet"                              # resnet18, resnet50, efficientnetv2_s, efficientnetv2_m or speciesnet
+OUTPUT_PTH = "glenfinglas_speciesnet.pth"        # model name
+
+SPECIESNET_DIR = "models/speciesnet"             # extracted Kaggle bundle: only used when ARCH is speciesnet
 
 TEST_FRAC = 0.30                                 # fraction of images held out for test set
 SEED = 42                                        # random seed for reproducibility 
 
-BATCH_SIZE = 64                                  # number of images per batch: reduce if VRAM is a limitation
-NUM_EPOCHS = 6                                   # number of iterations through train set during training
+BATCH_SIZE = 32                                  # number of images per batch: reduce if VRAM is a limitation
+NUM_EPOCHS = 5                                   # number of iterations through train set during training
 NUM_WORKERS = 4
 
 LR = 5e-4                                        # learning rate: higher = more aggresive ("bigger steps"), may overstep / lower = less aggresive, slower to learn
@@ -41,16 +45,24 @@ STEP_SIZE = 3                                    # epoch schedule after which lr
 GAMMA = 0.3                                      # multiplier for learning rate applied every step_size epochs   
 
 IMG_EXTS = (".jpg", ".jpeg", ".png")
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 # Image preprocessing
 # -------------------
 CROP_FRAC = 0.0456                               # fraction of bottom of images to remove e.g., data bar overlay: set to 0.0 to disable cropping
-INPUT_SIZE = 384                                 # image size after resize: higher = capture finer detail, slower to train / lower = loses some detail, faster to train
 NORM_MEAN = [0.485, 0.456, 0.406]                
 NORM_STD = [0.229, 0.224, 0.225]                 
 PAD_FILL = tuple(int(m * 255) for m in NORM_MEAN)
+
+INPUT_SIZES = {                                  # each backbone's native resolution
+    "resnet18": 224,
+    "resnet50": 224,
+    "efficientnetv2_s": 384,
+    "efficientnetv2_m": 480,
+    "speciesnet": 480,
+}
+INPUT_SIZE = INPUT_SIZES[ARCH]
 
 class CropBottom:
     """Remove the bottom fraction oif image height"""
@@ -79,25 +91,27 @@ class SquarePad:
 
         padding = (pad_w, pad_h, max_dim - w - pad_w, max_dim - h - pad_h)
         return ImageOps.expand(image, padding, fill=self.fill)
-    
-data_transforms = {
-    "train": transforms.Compose([
+
+def build_transform(arch, train):
+    """SpeciesNet brings its own preprocessing. Its full_image crop 
+    already removes the data bar, so CropBottom is not applied."""
+    if arch == "speciesnet":
+        augment = transforms.RandomHorizontalFlip() if train else None
+        return SpeciesNetPreprocess(read_info(SPECIESNET_DIR)["type"], augment=augment)
+
+    steps = [
         CropBottom(CROP_FRAC),
         SquarePad(PAD_FILL),
         transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
-        transforms.RandomHorizontalFlip(),
+    ]
+    if train:
+        steps.append(transforms.RandomHorizontalFlip())
+    steps += [
         transforms.ToTensor(),
         transforms.Normalize(NORM_MEAN, NORM_STD),
-    ]),
-    "test": transforms.Compose([
-        CropBottom(CROP_FRAC),
-        SquarePad(PAD_FILL),
-        transforms.Resize((INPUT_SIZE, INPUT_SIZE)),
-        transforms.ToTensor(),
-        transforms.Normalize(NORM_MEAN, NORM_STD),
-    ]),
-}
-    
+    ]
+    return transforms.Compose(steps)
+
 
 # Location + class stratified split 
 # ---------------------------------
@@ -157,6 +171,12 @@ def build_model(arch, num_classes):
     elif arch == "efficientnetv2_s":
         model = models.efficientnet_v2_s(weights="IMAGENET1K_V1")
         model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+    elif arch == "efficientnetv2_m":
+        model = models.efficientnet_v2_m(weights="IMAGENET1K_V1")
+        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+    elif arch == "speciesnet":
+        # see speciesnet_backbone.build_speciesnet
+        model = build_speciesnet(SPECIESNET_DIR, num_classes)
     else:
         raise ValueError(f"Unknown ARCH: {arch}")
     return model
@@ -229,8 +249,8 @@ def main():
     train_samples, test_samples = stratified_split(samples)
 
     image_datasets = {
-        "train": LabeledDataset(train_samples, data_transforms["train"]),
-        "test": LabeledDataset(test_samples, data_transforms["test"]),
+        "train": LabeledDataset(train_samples, build_transform(ARCH, train=True)),
+        "test": LabeledDataset(test_samples, build_transform(ARCH, train=False)),
     }
     dataloaders = {
         x: DataLoader(image_datasets[x], batch_size=BATCH_SIZE, shuffle=(x == "train"), num_workers=NUM_WORKERS) for x in ["train", "test"]
@@ -253,12 +273,16 @@ def main():
     print(f"class weights: {[round(w, 3) for w in weights]}")
 
     params = [p for p in model.parameters() if p.requires_grad]
+    print(f"trainable tensors: {len(params)} / {len(list(model.parameters()))}")
     optimiser = optim.AdamW(params, lr=LR, weight_decay=WEIGHT_DECAY)
     scheduler = lr_scheduler.StepLR(optimiser, step_size=STEP_SIZE, gamma=GAMMA)
 
     model = train_model(model, criterion, optimiser, scheduler, dataloaders, dataset_sizes, NUM_EPOCHS)
 
-    torch.save({"arch": ARCH, "class_names": class_names, "input_size": INPUT_SIZE, "norm_mean": NORM_MEAN, "norm_std": NORM_STD, "state_dict": model.state_dict()}, OUTPUT_PTH)
+    ckpt = {"arch": ARCH, "class_names": class_names, "input_size": INPUT_SIZE, "norm_mean": NORM_MEAN, "norm_std": NORM_STD, "state_dict": model.state_dict()}
+    if ARCH == "speciesnet":
+        ckpt["speciesnet_version"] = read_info(SPECIESNET_DIR)["version"]
+    torch.save(ckpt, OUTPUT_PTH)
     print(f"Saved checkpoint -> {OUTPUT_PTH}")
 
 if __name__ == "__main__":
