@@ -62,6 +62,8 @@ The architecture and class names are saved inside the `.pth`.
 
 ## Configuration 
 
+### `train.py`
+
 ### Models (`ARCH`)
 - `resnet18` - lightweight option for smaller/easier datasets. Pretrained on ImageNet.
 - `resnet50` - larger ResNet model which may be suitable for larger datasets. Pretrained on ImageNet.
@@ -70,7 +72,7 @@ The architecture and class names are saved inside the `.pth`.
 - `speciesnet` - the same EfficientNet V2-M architecture, pretrained by Google on over 65M camera trap images (see **SpeciesNet**).
 
 ### Image Preprocessing
-- `CropBottom` - crops `CROP_FRAC` fraction of input image height from bottom to remove data overlay bar in camera trap images. Set to 0.0456 for Glenfinglas data; set to 0.0 for no crop.
+- `CropBottom` - crops `CROP_FRAC` fraction of input image height from bottom to remove data overlay bar in camera trap images. Set to 0.0456 for Glenfinglas data; set to 0.0 for no crop. This should be kept the same across `train.py` and `classify_and_count.py`.
 - `SquarePad` - resizes input images to square using ImageNet mean grey-fill padding. Preserves aspect ratio.
 - `Resize` - scales square images to `INPUT_SIZE`x`INPUT_SIZE`. Default values correspond to native architecture resolutions. Should be well-divisible by 2 if edited.
 
@@ -86,6 +88,11 @@ The architecture and class names are saved inside the `.pth`.
 - `WEIGHT_DECAY = 1e-2` - limits overfitting: increase for smaller datasets, decrease for larger datasets.
 - `STEP_SIZE = 3`, `GAMMA = 0.3` - multiply learning rate by 0.3 every 3 epochs for finer convergence in later epochs.
 - `NUM_EPOCHS = 5` - iterate over training data 5 times: relatively few iterations to limit overfitting on "easy" dataset.
+
+### `classify_and_count.py`
+- `EMPTY_LABEL` - the name of your 'empty' class folder to be skipped by MegaDetector.
+- `MD_VERSION` - selected MegaDetector version. `MDV6-yolov10-e` is set as default since it provides the best accuracy in our testing; `MDV6-yolov10-c` is a lighter alternative which should provide a large speed-up on a CPU, but it is likely to increase the number of results marked for review.
+- `MD_THRESH` - default MegaDetector animal detection threshold if no `--threshold` argument is specified when the script is run.
 
 ## SpeciesNet
 
