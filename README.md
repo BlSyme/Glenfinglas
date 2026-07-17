@@ -21,12 +21,44 @@ pip install -r requirements.txt
 
 A GPU is optional, can be run on a laptop.
 
+## Suggested directory structure
+
+Following this structure will allow you to copy the terminal prompt provided for each script with very minimal changes. Should you wish to structure your directory differently, simply adjust the terminal prompts accordingly.
+
+```
+Glenfinglas/
+├── train.py
+├── classify_and_count.py
+├── draw_detections.py
+├── speciesnet_backbone.py
+├── models/
+│   ├── glenfinglas_resnet18.pth
+│   ├── glenfinglas_resnet50.pth
+│   ├── glenfinglas_efficientnetv2_s.pth
+│   ├── glenfinglas_efficientnetv2_m.pth
+│   └── glenfinglas_speciesnet.pth
+├── speciesnet/                                          # (optional) speciesnet model to be trained
+├── data/
+│   ├── train/                                           # (optional) classified images for training
+│   │   ├── deer/
+│   │   └── no_deer/
+│   └── images/                                          # camera trap images to be classified
+├── results/                                             # created when you run classify_and_count.py
+│   ├── results.xlsx
+│   ├── detections.json
+│   ├── detections/                                      # positive detections
+│   └── review/                                          # images marked for review
+├── requirements.txt
+└── README.md
+```
+
+
 ## Using a trained model (`classify_and_count.py`)
 
 Download a model (`.pth`), then:
 
 ```
-python classify_and_count.py --model glenfinglas_MODEL.pth --input path/to/images --output results.xlsx --detections detections.json
+python classify_and_count.py --model models/glenfinglas_MODEL.pth --input data/images --output results/results.xlsx --detections results/detections.json
 ```
 
 - `--model` is the path to whichever released `.pth` you want to use.
@@ -40,7 +72,7 @@ python classify_and_count.py --model glenfinglas_MODEL.pth --input path/to/image
 Run `classify_and_count.py`, then:
 
 ```
-python draw_detections.py --detections detections.json --output path/to/output --review path/to/review
+python draw_detections.py --detections results/detections.json --output results/detections/ --review results/review/
 ```
 
 - `--detections` is the path to the output JSON file of detections from `classify_and_count.py`. This should match the pathway and file you specified for `--detections` exactly.
