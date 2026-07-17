@@ -28,9 +28,9 @@ DATA_DIR = "data/train"
 CLASS_FOLDERS = ["no_deer", "deer"]              # class labels
 
 ARCH = "speciesnet"                              # resnet18, resnet50, efficientnetv2_s, efficientnetv2_m or speciesnet
-OUTPUT_PTH = "glenfinglas_speciesnet.pth"        # model name
+OUTPUT_PTH = "models/glenfinglas_speciesnet.pth" # model name
 
-SPECIESNET_DIR = "models/speciesnet"             # extracted Kaggle bundle: only used when ARCH is speciesnet
+SPECIESNET_DIR = "speciesnet"                    # extracted Kaggle bundle: only used when ARCH is speciesnet
 
 TEST_FRAC = 0.30                                 # fraction of images held out for test set
 SEED = 42                                        # random seed for reproducibility 

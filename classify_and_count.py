@@ -44,7 +44,7 @@ MD_VERSION = "MDV6-yolov10-e"
 MD_THRESH = 0.2                         # Detection confidence threshold for counting
 IMG_EXTS = (".jpg", ".jpeg", ".png")
 CROP_FRAC = 0.0456                      # Set to 0.0 to disable cropping
-SPECIESNET_DIR = "models/speciesnet"    # extracted Kaggle bundle: only used for speciesnet checkpoints
+SPECIESNET_DIR = "speciesnet"           # extracted Kaggle bundle: only used for speciesnet checkpoints
 
 
 # Image preprocessing

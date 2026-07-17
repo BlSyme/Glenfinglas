@@ -11,6 +11,7 @@ env/
 
 # Model weights
 models/
+speciesnet/
 *.pth
 
 # Data
