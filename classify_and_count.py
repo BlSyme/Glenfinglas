@@ -41,7 +41,7 @@ logging.getLogger("ultralytics").setLevel(logging.ERROR)
 # ------
 EMPTY_LABEL = "no_deer"                 # Set to None to run MegaDetector on every image
 MD_VERSION = "MDV6-yolov10-e"
-MD_THRESH = 0.2                         # Detection confidence threshold for counting
+MD_THRESH = 0.4                         # Detection confidence threshold for counting
 IMG_EXTS = (".jpg", ".jpeg", ".png")
 CROP_FRAC = 0.0456                      # Set to 0.0 to disable cropping
 SPECIESNET_DIR = "speciesnet"           # extracted Kaggle bundle: only used for speciesnet checkpoints
@@ -216,6 +216,7 @@ def main():
         if EMPTY_LABEL is not None and label == EMPTY_LABEL:
             count = 0
             review = False
+            records = []
         else:
             records = detect(path)
             count = len(records)
@@ -227,14 +228,17 @@ def main():
                 "detections": records,
             })
 
-        rows.append({
+        row = {
             "image_path": path,
             "image_name": os.path.basename(path),
             "class": label,
-            "confidence": round(float(score), 4),
+            "class_confidence": round(float(score), 4),
             "count": count,
             "review": review,
-        })
+        }
+        for j, r in enumerate(records, 1):        
+            row[f"detection_{j}"] = r["confidence"]
+        rows.append(row)
 
         pct = int(100 * i / len(images))
         if pct != last_pct or i == len(images):
@@ -244,7 +248,13 @@ def main():
     elapsed = time.time() - since
     print(f"Processed {len(images)} images in {elapsed // 60:.0f}m {elapsed % 60:.0f}s")        
 
-    pd.DataFrame(rows).to_excel(args.output, index=False)
+    df = pd.DataFrame(rows)
+    fixed = ["image_path", "image_name", "class", "class_confidence", "count", "review"]
+    det_cols = sorted(
+        (c for c in df.columns if c.startswith("detection_")), 
+        key=lambda c: int(c.split("_")[1]),
+    )
+    df[fixed + list(det_cols)].to_excel(args.output, index=False)
     print(f"Wrote {len(rows)} rows -> {args.output}")
     
     payload = {
