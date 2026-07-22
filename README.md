@@ -6,10 +6,11 @@ Warning: Human images were removed from the dataset before the provided models w
 
 ## Contents
 
-- `train.py` - used to train a transfer-learning classifier. This has already been used to create pretrained models based on resnet18, resnet50 and efficientnet_v2_s which can be applied out-of-the-box.
-- `speciesnet_backbone.py` - used by `train.py` when `ARCH = speciesnet`
+- `train.py` - used to train a transfer-learning classifier. This has already been used to create pretrained models based on ResNet18, ResNet50, EfficientNetV2-S, EfficientNetV2-M and SpeciesNet which can be applied out-of-the-box. The models can be downloaded [here](https://www.kaggle.com/models/blakesyme/glenfinglas/).
+- `speciesnet_backbone.py` - used by `train.py` when `ARCH = speciesnet`.
 - `classify_and_count.py` - used to apply a pretrained model to classify images and count the number of detections: point it at a folder of images and a model, outputs an Excel sheet with one row per image results (class, class confidence, count, review and per-detection confidence) and a JSON file for use by `draw_detections.py`. In particularly occluded or out-of-focus images, an image may be classified as containing *deer* but MegaDetector may still fail to define a bounding box. A *deer* classified image with count = 0 will be flagged with review = True in the Excel output, indicating that the image classification and count should be manually verified.
 - `draw_detections.py` - used to render the JSON output from `classify_and_count.py` to visualise detections using bounding boxes. Also outputs a folder of copies of images flagged for review for convenience.
+- `test.py` - used to apply a trained model to a manually classified folder of images to assess its accuracy. The stratified split within `train.py` leaves some correlation between the *test* and *train* sets as images from each location feature in both sets, likely giving a slightly inflated test accuracy. This script provides a tool to evaluate the model on a held-out location for a more realistic accuracy. 
 
 ## Requirements
 
@@ -31,23 +32,27 @@ Glenfinglas/
 ├── classify_and_count.py
 ├── draw_detections.py
 ├── speciesnet_backbone.py
+├── test.py
 ├── models/
 │   ├── glenfinglas_resnet18.pth
 │   ├── glenfinglas_resnet50.pth
 │   ├── glenfinglas_efficientnetv2_s.pth
 │   ├── glenfinglas_efficientnetv2_m.pth
 │   └── glenfinglas_speciesnet.pth
-├── speciesnet/                                          # (optional) speciesnet model to be trained
+├── speciesnet/                                # (optional) downloaded speciesnet model to be trained
 ├── data/
-│   ├── train/                                           # (optional) classified images for training
+│   ├── train/                                 # (optional) classified images for training
 │   │   ├── deer/
 │   │   └── no_deer/
-│   └── images/                                          # camera trap images to be classified
-├── results/                                             # created when you run classify_and_count.py
+│   ├── test/                                  # (optional) classified images for external testing
+│   │   ├── deer/
+│   │   └── no_deer/
+│   └── images/                                # camera trap images to be classified
+├── results/                                             
 │   ├── results.xlsx
 │   ├── detections.json
-│   ├── detections/                                      # positive detections
-│   └── review/                                          # images marked for review
+│   ├── detections/                            # positive detections
+│   └── review/                                # images marked for review
 ├── requirements.txt
 └── README.md
 ```
@@ -55,7 +60,7 @@ Glenfinglas/
 
 ## Using a trained model (`classify_and_count.py`)
 
-Download a model (`.pth`), then:
+Download a model (`.pth`) from [here](https://www.kaggle.com/models/blakesyme/glenfinglas/), then:
 
 ```
 python classify_and_count.py --model models/glenfinglas_MODEL.pth --input data/images --output results/results.xlsx --detections results/detections.json
@@ -91,6 +96,19 @@ python train.py
 
 The train/test split is stratified by location and class (~30% test).
 The architecture and class names are saved inside the `.pth`.
+
+In order to use `ARCH = 'speciesnet'` you must first download the [pretrained SpeciesNet model (variation PyTorch v4.0.1b)](https://www.kaggle.com/models/google/speciesnet/pyTorch/v4.0.1b). 
+
+## External testing (`test.py`)
+
+Having used `train.py` to create `MODEL.pth`:
+
+```
+python test.py --model models/MODEL.pth --input data/test
+```
+
+- `--model` is the path to whichever model you wish to evaluate.
+- `--input` is the path to the folder of classified images on which to test the model.
 
 ## Configuration 
 
