@@ -5,6 +5,7 @@ pillow
 numpy
 pandas
 openpyxl
+onnx2torch
 
 # MegaDetector
 pytorchwildlife==1.3.0
