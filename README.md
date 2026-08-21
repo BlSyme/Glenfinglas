@@ -154,3 +154,7 @@ release by Google as part of `cameratrapai`:
 > IET Computer Vision. 2024;18(8):1193–1208.
 
 Software: https://github.com/google/cameratrapai
+
+## Acknowledgement
+
+Credit and thanks must be given to the Edinburgh Mathematical Society for funding this project through the Student Research Bursary. The award has made this project possible and I am extremely grateful.
